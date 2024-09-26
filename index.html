@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Improved Nearest Building Finder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result, #error {
+            margin-top: 20px;
+            font-weight: bold;
+            text-align: center;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        #error {
+            color: #D8000C;
+            background-color: #FFD2D2;
+        }
+        .loading {
+            display: none;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Find the Nearest Building</h2>
+    <button onclick="findNearestBuilding()">Find Nearest Building</button>
+    <div id="result"></div>
+    <div id="error"></div>
+    <div class="loading" id="loading">Loading...</div>
+
+    <script>
+        const buildings = {
+            'W&N': [
+                {lat: 52.33291979764452, lon: 4.863978449120765},
+                {lat: 52.33343809283291, lon: 4.865008076724868},
+                {lat: 52.33343358017444, lon: 4.865841287875002},
+                {lat: 52.332993449550045, lon: 4.866482689659007},
+                {lat: 52.333183384494205, lon: 4.8676570761776174}
+            ],
+            'MF': [
+                {lat: 52.333561170373876, lon: 4.8637072787173015},
+                {lat: 52.333547830717926, lon: 4.862264258961598},
+                {lat: 52.33284787262683, lon: 4.8630617990075855}
+            ],
+            'NU': [
+                {lat: 52.334302939999375, lon: 4.864994776600442},
+                {lat: 52.334734730041696, lon: 4.86500328580838}
+            ],
+            'IN': [
+                {lat: 52.3334361568711, lon: 4.867387468625773},
+                {lat: 52.33382284170558, lon: 4.867348094282716},
+                {lat: 52.33380959807967, lon: 4.868144195658475},
+                {lat: 52.333444838034474, lon: 4.868230825762788}
+            ],
+            'HG': [
+                {lat: 52.33374253911558, lon: 4.86685303955229},
+                {lat: 52.33400143100305, lon: 4.8660220718147835},
+                {lat: 52.334336813748806, lon: 4.86538433613254},
+                {lat: 52.3346707517773, lon: 4.865418778474629}
+            ]
+        };
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Earth's radius in meters
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c; // Distance in meters
+        }
+
+        function getNearestBuilding(lat, lon) {
+            let nearestBuilding = null;
+            let minDistance = Infinity;
+
+            for (const [buildingName, coords] of Object.entries(buildings)) {
+                for (const coord of coords) {
+                    const distance = calculateDistance(lat, lon, coord.lat, coord.lon);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        nearestBuilding = buildingName;
+                    }
+                }
+            }
+
+            return { name: nearestBuilding, distance: minDistance };
+        }
+
+        function setLoading(isLoading) {
+            document.getElementById('loading').style.display = isLoading ? 'block' : 'none';
+        }
+
+        function setError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = message ? 'block' : 'none';
+        }
+
+        function setResult(message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = message;
+            resultDiv.style.display = message ? 'block' : 'none';
+        }
+
+        function findNearestBuilding() {
+            setLoading(true);
+            setError(null);
+            setResult(null);
+
+            if (navigator.geolocation) {
+                const options = {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                };
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        const nearest = getNearestBuilding(lat, lon);
+                        setResult(`Nearest Building: ${nearest.name} (${nearest.distance.toFixed(2)} meters away)`);
+                        console.log({latitude: lat, longitude: lon}, "latitude and longitude");
+                        setLoading(false);
+                    },
+                    (error) => {
+                        switch (error.code) {
+                            case error.PERMISSION_DENIED:
+                                setError("User denied the request for Geolocation.");
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                setError("Location information is unavailable.");
+                                break;
+                            case error.TIMEOUT:
+                                setError("The request to get user location timed out.");
+                                break;
+                            default:
+                                setError("An unknown error occurred.");
+                                break;
+                        }
+                        setLoading(false);
+                    },
+                    options
+                );
+            } else {
+                setError("Geolocation is not supported by this browser.");
+                setLoading(false);
+            }
+        }
+    </script>
+</body>
+</html>
